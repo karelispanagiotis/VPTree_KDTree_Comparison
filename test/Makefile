@@ -1,14 +1,18 @@
 # define the shell to bash
 SHELL := /bin/bash
 
-# define the C/C++ compiler to use,default here is clang
+# define the C/C++ compiler to use
 CC = gcc-7
 
-test_sequential:
-	cd ../; make lib;
-	cp ../lib/*.o ../inc/vptree.h ./;
-	$(CC) tester.c vptree_sequential.o -o $@ -lm
-	./test_sequential
+# define includes
+INCLUDES = -I../inc
+
+# define flags
+CFLAGS = -Wall -g
+
+test_sequential: 
+	$(CC) $(INCLUDES) $(CFLAGS) tester.c ../src/vptree_sequential.c -o $@ -lm
+
 
 clean: 
-	rm *.h *.o test_*
+	rm test_*

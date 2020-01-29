@@ -214,11 +214,11 @@ int verifyTree(vptree *T, double *vp, node **stack, double md, int isInner,
 
 
 
-int main()
+int main(int argc, char *argv[])
 {
 
-  int n=100;//data
-  int d=4;//dimensions
+  int n=atoi(argv[1]);//data
+  int d=atoi(argv[2]);//dimensions
 
   double  * dataArr = (double * ) malloc( n*d * sizeof(double) );
   double  * zeros   = (double * ) calloc( d   , sizeof(double) );
@@ -226,7 +226,7 @@ int main()
   foundInTree = (int *) calloc( n, sizeof(int) );
   
   for (int i=0;i<n*d;i++)
-    dataArr[i]=rand()%100;
+    dataArr[i]=rand()%100 + (double)rand()/RAND_MAX;
 
   vptree *root=buildvp(dataArr,n,d);
 
