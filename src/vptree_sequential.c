@@ -10,7 +10,7 @@ int N, D;  //data dimensions
 
 ////////////////////////////////////////////////////////////////////////
 
-inline double sqr(double x) {return x*x;}
+double sqr(double x) {return x*x;}
 void distCalc(double *vp, int start, int end)
 {
     double(*dataArr)[D] = (double(*)[D])Y;
@@ -23,13 +23,13 @@ void distCalc(double *vp, int start, int end)
 
 ////////////////////////////////////////////////////////////////////////
 
-inline void swapDouble(double* a, double* b)
+void swapDouble(double* a, double* b)
 {
     double temp = *a;
     *a = *b;
     *b = temp;
 }
-inline void swapInt(int* a, int* b)
+void swapInt(int* a, int* b)
 {
     int temp = *a;
     *a = *b;
@@ -54,50 +54,51 @@ void quickSelect(int kpos, double* distArr, int* idArr, int start, int end)
 
 ////////////////////////////////////////////////////////////////////////
 
-void recursiveBuildTree(vptree* node, int start, int end)
+void recursiveBuildTree(vptree* array, int start, int end, int nodeNumber)
 {
     double(*dataArr)[D] = (double(*)[D])Y;
     //consider X[ idArr[end] ] as vantage point
-    node->idx = idArr[end];
-    node->vp  = dataArr[ node->idx ]; 
+    array[nodeNumber].idx = idArr[end];
+    array[nodeNumber].vp  = dataArr[ idArr[end] ]; 
     
     if (start==end)
     {
-        node->inner = node->outer = NULL;
-        node->md = 0.0;
+        array[nodeNumber].inner = array[nodeNumber].outer = NULL;
+        array[nodeNumber].md = 0.0;
         return;
     }
     end--; //end is the vantage point, we're not dealing with it again
-    distCalc(node->vp,start,end);
+    distCalc(array[nodeNumber].vp,start,end);
     
     quickSelect( (start+end)/2, distArr, idArr, start, end );
     // now idArr[start .. (start+end)/2] contains the indexes
     // for the points which belong inside the radius (inner)
 
-    node->md  = sqrt(distArr[ (start+end)/2 ]);
-    node->inner = malloc( sizeof(vptree) );
-    node->outer = malloc( sizeof(vptree) );
-    recursiveBuildTree(node->inner, start, (start+end)/2);
+    array[nodeNumber].md  = sqrt(distArr[ (start+end)/2 ]);
+    array[nodeNumber].inner = &array[2*nodeNumber + 1];
+    array[nodeNumber].outer = &array[2*nodeNumber + 2];
+    recursiveBuildTree(array, start, (start+end)/2, 2*nodeNumber + 1);
     if (end>start)
-        recursiveBuildTree(node->outer, (start+end)/2 +1, end);
-    else node->outer = NULL;
+        recursiveBuildTree(array, (start+end)/2 +1, end, 2*nodeNumber + 2);
+    else array[nodeNumber].outer = NULL;
 };
 
 /////////////////////////////////////////////////////////////////////////////
 
 vptree *buildvp(double *X, int n, int d)
 {
-    vptree *root = malloc( sizeof(vptree) );
+    size_t arraySize = 1<<(32 - __builtin_clz(n-1));// Gets the next largest power of 2
+    vptree *treeArr = malloc( arraySize*sizeof(vptree) );
     idArr        = malloc( n*sizeof(int) );
     distArr      = malloc( n*sizeof(double) );
     Y=X, N=n, D=d;
     for (int i=0; i<N; i++) idArr[i] = i;
 
-    recursiveBuildTree(root, 0, n-1);
+    recursiveBuildTree(treeArr, 0, n-1, 0);
     
     free(idArr);
     free(distArr);
-    return root;
+    return &treeArr[0];
 }
 
 /////////////////////////////////////////////////////////////////////////////
