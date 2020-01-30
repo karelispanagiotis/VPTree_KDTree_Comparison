@@ -28,14 +28,14 @@ static char * STR_CORRECT_WRONG[] = {"WRONG", "CORRECT"};
 typedef struct node { 
   vptree *T;
   int isInner;
-  double md;
+  float md;
   struct node* link; 
 } node;
 
   
 // Utility function to add an element data in the stack 
 // insert at the beginning 
-void push(node **top, vptree *T, double md, int isInner) 
+void push(node **top, vptree *T, float md, int isInner) 
 { 
   // create new node temp and allocate memory 
   node *temp = (node *) malloc( sizeof(node) ); 
@@ -99,8 +99,8 @@ void pop(node **top)
 // === UTILITIES ===
 // =================
 
-double dist(double *X, double *Y, int d){
-  double dist2 = 0;
+float dist(float *X, float *Y, int d){
+  float dist2 = 0;
   for (int i = 0; i < d; i++){
     dist2 += (X[i] - Y[i])*(X[i] - Y[i]);
   }
@@ -109,7 +109,7 @@ double dist(double *X, double *Y, int d){
 
 // Function to print all the  
 // elements of the stack  
-int verifyLeafPlace(node **top, double *X, int d)
+int verifyLeafPlace(node **top, float *X, int d)
 { 
 
   
@@ -151,7 +151,7 @@ int verifyLeafPlace(node **top, double *X, int d)
 
 int *foundInTree;
 
-int verifyTree(vptree *T, double *vp, node **stack, double md, int isInner,
+int verifyTree(vptree *T, float *vp, node **stack, float md, int isInner,
                int n, int d){
 
   int isValid = 1;
@@ -220,13 +220,13 @@ int main(int argc, char *argv[])
   int n=atoi(argv[1]);//data
   int d=atoi(argv[2]);//dimensions
 
-  double  * dataArr = (double * ) malloc( n*d * sizeof(double) );
-  double  * zeros   = (double * ) calloc( d   , sizeof(double) );
+  float  * dataArr = (float * ) malloc( n*d * sizeof(float) );
+  float  * zeros   = (float * ) calloc( d   , sizeof(float) );
 
   foundInTree = (int *) calloc( n, sizeof(int) );
   
   for (int i=0;i<n*d;i++)
-    dataArr[i]=rand()%100 + (double)rand()/RAND_MAX;
+    dataArr[i]=rand()%100 + (float)rand()/RAND_MAX;
 
   vptree *root=buildvp(dataArr,n,d);
 

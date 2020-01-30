@@ -7,8 +7,8 @@ typedef struct vptree vptree;
 // ========== LIST OF ACCESSORS
 struct vptree
 {
-    double *vp; //the vantage point
-    double md;  //the median distance of the vantage point to the others
+    float *vp; //the vantage point
+    float md;  //the median distance of the vantage point to the others
     int idx;    //the index of the vantage point in the original set
     vptree *inner;
     vptree *outer;
@@ -23,7 +23,7 @@ struct vptree
     \param d number of dimensions (columns of X)
     \return The vantage-point tree
 */
-vptree *buildvp(double *X, int n, int d);
+vptree *buildvp(float *X, int n, int d);
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -50,7 +50,7 @@ vptree * getOuter(vptree * T);
     \param node A vantage-point tree
     \return The median distance
 */
-double getMD(vptree * T);
+float getMD(vptree * T);
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -60,7 +60,7 @@ double getMD(vptree * T);
     \param node A vantage-point tree
     \return The coordinates [d-dimensional vector]
 */
-double * getVP(vptree * T);
+float * getVP(vptree * T);
 
 /////////////////////////////////////////////////////////////////////////////
 
