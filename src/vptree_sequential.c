@@ -5,6 +5,7 @@
 //Globally defined variables for easy data access by threads
 int *idArr;
 float *distArr;
+vptree *treeArr;
 float *Y; //data array
 int N, D;  //data dimensions
 
@@ -54,33 +55,33 @@ void quickSelect(int kpos, float* distArr, int* idArr, int start, int end)
 
 ////////////////////////////////////////////////////////////////////////
 
-void recursiveBuildTree(vptree* array, int start, int end, int nodeNumber)
+void recursiveBuildTree(int start, int end, int nodeNumber)
 {
     float(*dataArr)[D] = (float(*)[D])Y;
     //consider X[ idArr[end] ] as vantage point
-    array[nodeNumber].idx = idArr[end];
-    array[nodeNumber].vp  = dataArr[ idArr[end] ]; 
+    treeArr[nodeNumber].idx = idArr[end];
+    treeArr[nodeNumber].vp  = dataArr[ idArr[end] ]; 
     
     if (start==end)
     {
-        array[nodeNumber].inner = array[nodeNumber].outer = NULL;
-        array[nodeNumber].md = 0.0;
+        treeArr[nodeNumber].inner = treeArr[nodeNumber].outer = NULL;
+        treeArr[nodeNumber].md = 0.0;
         return;
     }
     end--; //end is the vantage point, we're not dealing with it again
-    distCalc(array[nodeNumber].vp,start,end);
+    distCalc(treeArr[nodeNumber].vp,start,end);
     
     quickSelect( (start+end)/2, distArr, idArr, start, end );
     // now idArr[start .. (start+end)/2] contains the indexes
     // for the points which belong inside the radius (inner)
 
-    array[nodeNumber].md  = sqrt(distArr[ (start+end)/2 ]);
-    array[nodeNumber].inner = &array[2*nodeNumber + 1];
-    array[nodeNumber].outer = &array[2*nodeNumber + 2];
-    recursiveBuildTree(array, start, (start+end)/2, 2*nodeNumber + 1);
+    treeArr[nodeNumber].md  = sqrt(distArr[ (start+end)/2 ]);
+    treeArr[nodeNumber].inner = &treeArr[2*nodeNumber + 1];
+    treeArr[nodeNumber].outer = &treeArr[2*nodeNumber + 2];
+    recursiveBuildTree( start, (start+end)/2, 2*nodeNumber + 1);
     if (end>start)
-        recursiveBuildTree(array, (start+end)/2 +1, end, 2*nodeNumber + 2);
-    else array[nodeNumber].outer = NULL;
+        recursiveBuildTree( (start+end)/2 +1, end, 2*nodeNumber + 2);
+    else treeArr[nodeNumber].outer = NULL;
 };
 
 /////////////////////////////////////////////////////////////////////////////
@@ -88,13 +89,13 @@ void recursiveBuildTree(vptree* array, int start, int end, int nodeNumber)
 vptree *buildvp(float *X, int n, int d)
 {
     size_t arraySize = 1<<(32 - __builtin_clz(n-1));// Gets the next largest power of 2
-    vptree *treeArr = (vptree *)malloc( arraySize*sizeof(vptree) );
+    treeArr = (vptree *)malloc( arraySize*sizeof(vptree) );
     idArr           =(int *)malloc( n*sizeof(int) );
     distArr         = (float *)malloc( n*sizeof(float) );
     Y=X, N=n, D=d;
     for (int i=0; i<N; i++) idArr[i] = i;
 
-    recursiveBuildTree(treeArr, 0, n-1, 0);
+    recursiveBuildTree(0, n-1, 0);
     
     free(idArr);
     free(distArr);
