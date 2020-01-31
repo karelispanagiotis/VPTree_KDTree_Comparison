@@ -99,7 +99,8 @@ void recursiveBuildTree(int start, int end, int nodeNumber)
 __global__ void idx_init()
 {
     int idx = blockIdx.x*BLK_SZ + threadIdx.x;
-    dev_idArr[idx] = idx; 
+    if(idx<dev_n);
+        dev_idArr[idx] = idx; 
 }
 
 vptree *buildvp(float *X, int n, int d)
