@@ -36,7 +36,7 @@ void swapInt(int* a, int* b)
     *a = *b;
     *b = temp;
 }
-void quickSelect(int kpos, float* distArr, int* idArr, int start, int end)
+void quickSelect(int kpos, int start, int end)
 {
     int store=start;
     float pivot=distArr[end];
@@ -49,8 +49,8 @@ void quickSelect(int kpos, float* distArr, int* idArr, int start, int end)
         }        
     store--;
     if (store == kpos) return;
-    else if (store < kpos) quickSelect(kpos, distArr, idArr, store+1, end);
-    else quickSelect(kpos, distArr, idArr, start, store-1);
+    else if (store < kpos) quickSelect(kpos, store+1, end);
+    else quickSelect(kpos, start, store-1);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -71,7 +71,7 @@ void recursiveBuildTree(int start, int end, int nodeNumber)
     end--; //end is the vantage point, we're not dealing with it again
     distCalc(treeArr[nodeNumber].vp,start,end);
     
-    quickSelect( (start+end)/2, distArr, idArr, start, end );
+    quickSelect( (start+end)/2, start, end );
     // now idArr[start .. (start+end)/2] contains the indexes
     // for the points which belong inside the radius (inner)
 
