@@ -80,6 +80,7 @@ void recursiveBuildTree(int start, int end, int nodeNumber)
     end--; //end is the vantage point, we're not dealing with it again
 
     distCalc<<<(end-start+BLK_SZ)/BLK_SZ, BLK_SZ>>>(dev_treeArr[nodeNumber].vp, start, end);
+    cudaDeviceSynchronize();
 
     quickSelect((start+end)/2, start, end);
 
@@ -91,6 +92,7 @@ void recursiveBuildTree(int start, int end, int nodeNumber)
     if(end>start)
         recursiveBuildTree<<<1,1>>>((start+end)/2 + 1, end, 2*nodeNumber + 2);
     else dev_treeArr[nodeNumber].outer = NULL;
+    cudaDeviceSynchronize();
 
 }
 
@@ -115,6 +117,7 @@ vptree *buildvp(float *X, int n, int d)
     cudaMemset(&dev_n, n, sizeof(int)); //Set n
     cudaMemset(&dev_d, d, sizeof(int)); //Set d
     idx_init<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(); //set idx [0...n-1]
+    cudaDeviceSynchronize();
     
     // Recursively build tree in GPU
     recursiveBuildTree<<<1,1>>>(0, n-1, 0); //This kernel only needs one thread
