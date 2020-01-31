@@ -20,18 +20,21 @@ CC = nvcc
 
 #define compile-time flags
 CFLAGS = -w -O3 
-
+CUDAFLAGS = -x cu -dc -arch=sm_35
 #define directories containing header files
 INCLUDES = -I./inc
 
 #define Objects
-OBJECTS = vptree_sequential.o
+OBJECTS = vptree_sequential.o vptree_cuda.o
 
 ########################################################################
 
 lib: $(OBJECTS)
 	
-%.o : src/%.c 
+%.o : src/%.cpp
+	$(CC) $(CFLAGS) $(CUDAFLAGS) $(INCLUDES) $< -o lib/$@
+
+%.o : src/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o lib/$@
 
 clean: 
