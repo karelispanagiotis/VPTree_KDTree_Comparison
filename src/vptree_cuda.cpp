@@ -108,13 +108,13 @@ vptree *buildvp(float *X, int n, int d)
     size_t treeSize = 1<<(32 - __builtin_clz(n-1)); // next greater power of 2 than n
 
     // Allocate Memory on Device
-    cudaMalloc(&dev_X, n*sizeof(float));
+    cudaMalloc(&dev_X, n*d*sizeof(float));
     cudaMalloc(&dev_idArr, n*sizeof(int));
     cudaMalloc(&dev_distArr, n*sizeof(float));
     cudaMalloc(&dev_treeArr, treeSize*sizeof(vptree));
 
     // Initialise Device Variables
-    cudaMemcpy(dev_X, X, n*sizeof(int), cudaMemcpyHostToDevice); //copy Data
+    cudaMemcpy(dev_X, X, n*d*sizeof(int), cudaMemcpyHostToDevice); //copy Data
     cudaMemset(&dev_n, n, sizeof(int)); //Set n
     cudaMemset(&dev_d, d, sizeof(int)); //Set d
     idx_init<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(); //set idx [0...n-1]
