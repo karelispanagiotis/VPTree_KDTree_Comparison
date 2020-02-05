@@ -8,7 +8,7 @@ CC = nvcc
 INCLUDES = -I../inc
 
 # define flags
-CFLAGS = -w
+CFLAGS = -w -g
 CUDAFLAGS = -arch=sm_35
 
 test_sequential: 
@@ -19,5 +19,12 @@ test_cuda:
 	$(CC) $(INCLUDES) $(CFLAGS) $(CUDAFLAGS) -x cu -dc tester.c
 	$(CC) $(INCLUDES) $(CFLAGS) $(CUDAFLAGS) tester.o ../lib/vptree_cuda.o -o $@
 
+test_cuda2:
+	cd ..; make lib;
+	$(CC) $(INCLUDES) $(CFLAGS) $(CUDAFLAGS) -x cu -dc tester_cuda.cpp
+	$(CC) $(INCLUDES) $(CFLAGS) $(CUDAFLAGS) tester_cuda.o ../lib/vptree_cuda.o -o $@
+
+test_knn:
+	g++ $(INCLUDES) $(CFLAGS) tester_knn.c ../src/kNN.cpp ../src/vptree_sequential.c -o $@ -lm
 clean: 
 	rm test_* *.o

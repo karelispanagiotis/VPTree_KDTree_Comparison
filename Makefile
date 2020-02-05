@@ -25,7 +25,7 @@ CUDAFLAGS = -x cu -dc -arch=sm_35
 INCLUDES = -I./inc
 
 #define Objects
-OBJECTS = vptree_sequential.o vptree_cuda.o
+OBJECTS = vptree_sequential.o vptree_cuda.o kNN.o
 
 ########################################################################
 
