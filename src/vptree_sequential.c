@@ -38,19 +38,26 @@ void swapInt(int* a, int* b)
 }
 void quickSelect(int kpos, int start, int end)
 {
-    int store=start;
-    float pivot=distArr[end];
-    for (int i=start; i<=end; i++)
+    int store;
+    float pivot;
+    while(start<=end)
+    {
+        store = start;
+        pivot = distArr[end];
+
+        for (int i=start; i<=end; i++)
         if (distArr[i] <= pivot)
         {
             swapFloat(distArr+i, distArr+store);
             swapInt   (idArr+i,   idArr+store);
             store++;
         }        
-    store--;
-    if (store == kpos) return;
-    else if (store < kpos) quickSelect(kpos, store+1, end);
-    else quickSelect(kpos, start, store-1);
+        store--;
+
+        if(store ==kpos) return;
+        else if(store < kpos) start = store + 1;
+        else end = store - 1; 
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////
