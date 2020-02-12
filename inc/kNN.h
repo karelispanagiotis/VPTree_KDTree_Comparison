@@ -2,6 +2,7 @@
 #define KNN_H
 
 #include "vptree.h"
+#include "kdtree.h"
 
 // Definition of the kNN result struct
 typedef struct knnresult
@@ -14,13 +15,15 @@ typedef struct knnresult
 
 //! Compute k nearest neighbors of each point in X [n-by-d]
 /*!
-    \param root   The Vantage Point Tree 
+    \param root   The Vantage Point Tree / The KD-Tree
     \param query  Query data points      [n-by-d]
-    \param n      Number of data points  [scalar]
+    \param n      Number of query points [scalar]
     \param d      Number of dimensions   [scalar]
     \param k      Number of neighbors    [scalar]
 
 */
 knnresult vptree_kNN(vptree *root, float *query, int n, int d, int k);
+
+knnresult kdtree_kNN(kdtree *root, float *query, int n, int d, int k);
 
 #endif
