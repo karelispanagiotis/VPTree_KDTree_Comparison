@@ -1,25 +1,13 @@
 #include "kdtree.h"
 #include <cstdlib>
+#include <bits/stdc++.h>
 
-int *idArr;
-kdtree *treeArr;
-float *Y, *aux_array;
-int N, D;
+static int *idArr;
+static kdtree *treeArr;
+static float *Y, *aux_array;
+static int N, D;
 
-void swapFloat(float* a, float* b)
-{
-    float temp = *a;
-    *a = *b;
-    *b = temp;
-}
-void swapInt(int* a, int* b)
-{
-    int temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
-void quickSelect(int kpos, int start, int end)
+void quickSelect_kdt(int kpos, int start, int end)
 {
     int store;
     float pivot;
@@ -31,8 +19,8 @@ void quickSelect(int kpos, int start, int end)
         for (int i=start; i<=end; i++)
         if (aux_array[i] <= pivot)
         {
-            swapFloat (aux_array+i, aux_array+store);
-            swapInt   (idArr+i    , idArr+store);
+            std::swap(aux_array[i], aux_array[store]);
+            std::swap(idArr    [i], idArr    [store]);
             store++;
         }        
         store--;
@@ -44,7 +32,7 @@ void quickSelect(int kpos, int start, int end)
 }
 
 
-void recursiveBuildTree(int start, int end, int ndNum)
+void buildNode_kdt(int start, int end, int ndNum)
 {
     float(*dataArr)[D] = (float(*)[D])Y;
 
@@ -64,7 +52,7 @@ void recursiveBuildTree(int start, int end, int ndNum)
         aux_array[i] = dataArr[idArr[i]][treeArr[ndNum].axis];
 
     int middle = (start+end)/2;
-    quickSelect(middle, start, end);
+    quickSelect_kdt(middle, start, end);
 
     treeArr[ndNum].idx = idArr[middle];
     treeArr[ndNum].p   = dataArr[ idArr[middle] ];
@@ -73,8 +61,8 @@ void recursiveBuildTree(int start, int end, int ndNum)
     treeArr[ndNum].right = &treeArr[2*ndNum + 2];
 
     // Recursion
-    recursiveBuildTree(middle+1, end, 2*ndNum+2);
-    if(start<middle) recursiveBuildTree(start, middle-1, 2*ndNum+1);
+    buildNode_kdt(middle+1, end, 2*ndNum+2);
+    if(start<middle) buildNode_kdt(start, middle-1, 2*ndNum+1);
     else treeArr[ndNum].left = NULL;
 }
 
@@ -88,7 +76,7 @@ kdtree *buildkd(float *X, int n, int d)
     Y=X; N=n; D=d;
     for(int i=0; i<n; i++) idArr[i] = i;
 
-    recursiveBuildTree(0, n-1, 0);
+    buildNode_kdt(0, n-1, 0);
 
     free(idArr);
     free(aux_array);
