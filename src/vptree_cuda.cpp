@@ -115,7 +115,7 @@ __global__ void idx_init()
         dev_idArr[idx] = idx;
 }
 
-vptree *buildvp(float *X, int n, int d)
+vptree *buildvp(float *X, int n, int d, int offset)
 {
     size_t treeSize = 1<<(32 - __builtin_clz(n-1)); // next greater power of 2 than n
     vptree *treeArr = (vptree *)malloc(treeSize*sizeof(vptree));
