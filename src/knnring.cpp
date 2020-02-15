@@ -70,7 +70,6 @@ knnresult vptree_distrAllkNN(float *X, int n, int d, int k)
     next = mod(rank+1, numtasks);
 
     int idOffset = n*mod(rank-1, numtasks);
-    printf("Process %d, idOffset = %d\n", rank, idOffset);
     
     float *Y = (float *)malloc(n*d*sizeof(float)); //will process and send data
     float *Z = (float *)malloc(n*d*sizeof(float)); //will receive data while processing
