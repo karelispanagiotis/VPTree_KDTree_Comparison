@@ -10,11 +10,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <sys/time.h>
 #include <math.h>
 #include <assert.h>
 #include "vptree.h"
 
-/* #define VERBOSE */
+// #define VERBOSE 
 
 static char * STR_CORRECT_WRONG[] = {"WRONG", "CORRECT"};
 
@@ -132,7 +133,11 @@ int verifyLeafPlace(node **top, float *X, int d)
     int isInner =  dist(X, getVP(temp->T), d) <= temp->md;
     
     // if the direction is invalid, break and return false
-    if ( isInner != temp->isInner ) return 0;
+    if ( isInner != temp->isInner )
+    {
+      fprintf( stdout, "%f | %f | %d == %d\n", dist(X, getVP(temp->T), d), temp->md, temp->isInner, dist(X, getVP(temp->T), d) <= temp->md );
+      return 0;
+    } 
     
     // assign temp link to temp 
     temp = temp->link; 
@@ -226,10 +231,15 @@ int main(int argc, char *argv[])
   foundInTree = (int *) calloc( n, sizeof(int) );
   
   for (int i=0;i<n*d;i++)
-    dataArr[i]=rand()%100 + (float)rand()/RAND_MAX;
+    dataArr[i]=(float)rand()/RAND_MAX;
 
+  printf("Initialized CPU data...\n");
+  // Time Measurement
+  struct timeval start, end;
+  gettimeofday(&start, NULL);
   vptree *root=buildvp(dataArr,n,d);
-
+  gettimeofday(&end, NULL);
+  
   node *stack = NULL;
   
   int isValid = verifyTree(root, zeros, &stack, 1.0/0.0, 1, n, d );
@@ -242,9 +252,11 @@ int main(int argc, char *argv[])
       foundAll = 0;
       break;
     }
-
+  
+  long time_usec = (end.tv_sec - start.tv_sec)*1000000 + end.tv_usec - start.tv_usec;
   printf("Tester validation: %s PROPERTIES | %s INDICES\n",
            STR_CORRECT_WRONG[isValid], STR_CORRECT_WRONG[foundAll]);
+  printf("%s:Construction of tree took %lf\n", argv[0], (double)time_usec/1000000);
 
   return 0;
   
