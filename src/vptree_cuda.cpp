@@ -1,9 +1,11 @@
 #include "vptree.h"
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdio>
+#include <cstdlib>
 #include <cuda.h>
 #include <cuda_runtime_api.h>
+#include <device_launch_parameters.h>
 #include <math.h>
+#include <thrust/swap.h>
 
 #define BLK_SZ 512
 
@@ -43,22 +45,6 @@ void distCalc(float *vp, int start, int end)
     }
 }
 
-__device__ __forceinline__
-void swapFloat(float* a, float* b)
-{
-    float temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
-__device__ __forceinline__
-void swapInt(int* a, int* b)
-{
-    int temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
 __device__
 void quickSelect(int kpos, int start, int end)
 {
@@ -67,8 +53,8 @@ void quickSelect(int kpos, int start, int end)
     for (int i=start; i<=end; i++)
         if (dev_distArr[i] <= pivot)
         {
-            swapFloat(dev_distArr+i, dev_distArr+store);
-            swapInt  (dev_idArr+i  , dev_idArr+store);
+            thrust::swap(dev_distArr[i], dev_distArr[store]);
+            thrust::swap(dev_idArr  [i], dev_idArr  [store]);
             store++;
         }        
     store--;
