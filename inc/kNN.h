@@ -26,4 +26,8 @@ knnresult vptree_kNN(vptree *root, float *query, int n, int d, int k);
 
 knnresult kdtree_kNN(kdtree *root, float *query, int n, int d, int k);
 
+knnresult vptree_distrAllkNN(float *X, int n, int d, int k);
+
+knnresult kdtree_distrAllkNN(float *X, int n, int d, int k);
+
 #endif
