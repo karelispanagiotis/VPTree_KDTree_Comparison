@@ -1,13 +1,14 @@
 #include "vptree.h"
 #include <stdlib.h>
 #include <math.h>
+#include <bits/stdc++.h>
 
 //Globally defined variables for easy data access by threads
-int *idArr;
-float *distArr;
-vptree *treeArr;
-float *Y; //data array
-int N, D;  //data dimensions
+static int *idArr;
+static float *distArr;
+static vptree *treeArr;
+static float *Y; //data array
+static int N, D;  //data dimensions
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -24,19 +25,7 @@ void distCalc(float *vp, int start, int end)
 
 ////////////////////////////////////////////////////////////////////////
 
-void swapFloat(float* a, float* b)
-{
-    float temp = *a;
-    *a = *b;
-    *b = temp;
-}
-void swapInt(int* a, int* b)
-{
-    int temp = *a;
-    *a = *b;
-    *b = temp;
-}
-void quickSelect(int kpos, int start, int end)
+void quickSelect_vpt(int kpos, int start, int end)
 {
     int store;
     float pivot;
@@ -48,8 +37,8 @@ void quickSelect(int kpos, int start, int end)
         for (int i=start; i<=end; i++)
         if (distArr[i] <= pivot)
         {
-            swapFloat(distArr+i, distArr+store);
-            swapInt   (idArr+i,   idArr+store);
+            std::swap(distArr[i], distArr[store]);
+            std::swap(idArr  [i], idArr  [store]);
             store++;
         }        
         store--;
@@ -62,11 +51,11 @@ void quickSelect(int kpos, int start, int end)
 
 ////////////////////////////////////////////////////////////////////////
 
-void recursiveBuildTree(int start, int end, int nodeNumber)
+void buildNode_vpt(int start, int end, int nodeNumber, int offset)
 {
     float(*dataArr)[D] = (float(*)[D])Y;
     //consider X[ idArr[end] ] as vantage point
-    treeArr[nodeNumber].idx = idArr[end];
+    treeArr[nodeNumber].idx = idArr[end] + offset;
     treeArr[nodeNumber].vp  = dataArr[ idArr[end] ]; 
     
     if (start==end)
@@ -78,22 +67,22 @@ void recursiveBuildTree(int start, int end, int nodeNumber)
     end--; //end is the vantage point, we're not dealing with it again
     distCalc(treeArr[nodeNumber].vp,start,end);
     
-    quickSelect( (start+end)/2, start, end );
+    quickSelect_vpt( (start+end)/2, start, end );
     // now idArr[start .. (start+end)/2] contains the indexes
     // for the points which belong inside the radius (inner)
 
     treeArr[nodeNumber].md  = sqrt(distArr[ (start+end)/2 ]);
     treeArr[nodeNumber].inner = &treeArr[2*nodeNumber + 1];
     treeArr[nodeNumber].outer = &treeArr[2*nodeNumber + 2];
-    recursiveBuildTree( start, (start+end)/2, 2*nodeNumber + 1);
+    buildNode_vpt( start, (start+end)/2, 2*nodeNumber + 1, offset);
     if (end>start)
-        recursiveBuildTree( (start+end)/2 +1, end, 2*nodeNumber + 2);
+        buildNode_vpt( (start+end)/2 +1, end, 2*nodeNumber + 2, offset);
     else treeArr[nodeNumber].outer = NULL;
 };
 
 /////////////////////////////////////////////////////////////////////////////
 
-vptree *buildvp(float *X, int n, int d)
+vptree *buildvp(float *X, int n, int d, int offset)
 {
     size_t arraySize = 1<<(32 - __builtin_clz(n-1));// Gets the next largest power of 2
     treeArr = (vptree *)malloc( arraySize*sizeof(vptree) );
@@ -102,7 +91,7 @@ vptree *buildvp(float *X, int n, int d)
     Y=X, N=n, D=d;
     for (int i=0; i<N; i++) idArr[i] = i;
 
-    recursiveBuildTree(0, n-1, 0);
+    buildNode_vpt(0, n-1, 0, offset);
     
     free(idArr);
     free(distArr);
