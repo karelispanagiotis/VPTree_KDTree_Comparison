@@ -1,13 +1,17 @@
 #include "vptree.h"
+#include <stdlib.h>
 #include <cstdio>
-#include <cstdlib>
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 #include <math.h>
-#include <thrust/swap.h>
+#include <thrust/sequence.h>
+#include <thrust/fill.h>
+#include <thrust/execution_policy.h>
+#include <thrust/sort.h>
+#include <bits/stdc++.h>
 
-#define BLK_SZ 512
+#define BLK_SZ 1024
 
 #define cudaErrChk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
@@ -19,109 +23,198 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
    }
 }
 
-//Globally defined variables for easy data access by functions
-__device__ __managed__ int *dev_idArr;
-__device__ __managed__ float *dev_distArr;
-__device__ __managed__ float *dev_X;
-__device__ __managed__ vptree *dev_treeArr;
-__device__ __managed__ int dev_n, dev_d;
-
-
 __device__ __forceinline__
 float sqr(float x) {return x*x;}
 
-
-__global__ 
-void distCalc(float *vp, int start, int end)
+__device__ __forceinline__
+void swapDouble(float* a, float* b)
 {
-    int idx = start + blockIdx.x*BLK_SZ + threadIdx.x;  //calculate idx
-    if(idx <= end)
-    {
-        float distance = 0;
-        for(int j=0; j<dev_d; j++)
-            distance += sqr(vp[j] - dev_X[dev_idArr[idx]*dev_d + j]); 
-        
-        dev_distArr[idx] = distance;
-    }
+    double temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+__device__ __forceinline__
+void swapInt(int* a, int* b)
+{
+    int temp = *a;
+    *a = *b;
+    *b = temp;
 }
 
 __device__
-void quickSelect(int kpos, int start, int end)
+void quickSelect(int kpos, float* distArr, int* idArr, int start, int end)
 {
-    int store = start;
-    float pivot = dev_distArr[end];
+    int store=start;
+    double pivot=distArr[end];
     for (int i=start; i<=end; i++)
-        if (dev_distArr[i] <= pivot)
+        if (distArr[i] <= pivot)
         {
-            thrust::swap(dev_distArr[i], dev_distArr[store]);
-            thrust::swap(dev_idArr  [i], dev_idArr  [store]);
+            swapDouble(distArr+i, distArr+store);
+            swapInt   (idArr+i,   idArr+store);
             store++;
         }        
     store--;
     if (store == kpos) return;
-    else if (store < kpos) quickSelect(kpos, store+1, end);
-    else quickSelect(kpos, start, store-1);
+    else if (store < kpos) quickSelect(kpos, distArr, idArr, store+1, end);
+    else quickSelect(kpos, distArr, idArr, start, store-1);
+}
+
+
+__global__ 
+void distCalc(float *X, int *idArr, float *distArr, int *ends, int n, int d)
+{
+    int tid = blockIdx.x*BLK_SZ + threadIdx.x;  //calculate idx
+    if(tid<n)
+    {
+        float vp[100];
+        int end=ends[tid], idx=idArr[end];
+
+        if(tid>=end) return;
+
+        for(int i=0; i<d; i++)
+            vp[i] = X[idx*d + i];
+
+        float distance = 0;
+        idx = idArr[tid];
+        for(int i=0; i<d; i++)
+            distance += sqr(vp[i] - X[idx*d + i]); 
+        
+        distArr[tid] = sqrt(distance);
+    }
 }
 
 __global__
-void recursiveBuildTree(int start, int end, int nodeNumber, float *hostPtr_d, vptree *hostPtr_t )
+void sort(float *distArr, int *idArr, int *starts, int *ends, int n)
 {
-    //consider X[ idArr[end] ] as vantage point
-    float *vp = &dev_X[ dev_idArr[end]*dev_d ]; 
-    dev_treeArr[nodeNumber].idx = dev_idArr[end];
-    dev_treeArr[nodeNumber].vp = &hostPtr_d[ dev_idArr[end]*dev_d ];
-
-    if(start == end)
+    int tid = blockIdx.x*BLK_SZ + threadIdx.x;
+    if(tid<n)
     {
-        dev_treeArr[nodeNumber].inner = dev_treeArr[nodeNumber].outer = NULL;
-        dev_treeArr[nodeNumber].md = 0.0;
-        return;
+        int start=starts[tid], end=ends[tid], idx=idArr[tid];
+        float val=distArr[tid];
+        
+        // Shut down threads corresponding to vantage points
+        if(tid!=(start+end)/2 || start>=end) return;
+
+        end--;
+        quickSelect((start+end)/2, distArr, idArr, start, end);
     }
-    end--; //end is the vantage point, we're not dealing with it again
-    
-    distCalc<<<(end-start+BLK_SZ)/BLK_SZ, BLK_SZ>>>(vp, start, end);
-    cudaDeviceSynchronize();
-
-    quickSelect((start+end)/2, start, end);
-    
-    dev_treeArr[nodeNumber].md = sqrtf(dev_distArr[ (start+end)/2 ]);
-    dev_treeArr[nodeNumber].inner = &hostPtr_t[2*nodeNumber + 1];
-    dev_treeArr[nodeNumber].outer = &hostPtr_t[2*nodeNumber + 2];
-
-    recursiveBuildTree<<<1,1>>>(start, (start+end)/2, 2*nodeNumber + 1, hostPtr_d, hostPtr_t);
-    if(end>start)
-        recursiveBuildTree<<<1,1>>>((start+end)/2 + 1, end, 2*nodeNumber + 2, hostPtr_d, hostPtr_t);
-    else dev_treeArr[nodeNumber].outer = NULL;
 }
 
-__global__ void idx_init()
+__global__
+void build_level(vptree *treeArr, float *distArr, int *idArr, int *starts, int *ends, int *nodes, int n)
 {
-    int idx = blockIdx.x*BLK_SZ + threadIdx.x;
-    if(idx<dev_n)
-        dev_idArr[idx] = idx;
+    int tid = blockIdx.x*BLK_SZ + threadIdx.x;
+    if(tid<n)
+    {
+        int start=starts[tid], end=ends[tid], node=nodes[tid];
+
+        treeArr[node].idx = idArr[end];
+        if(start==end)
+        {
+            treeArr[node].md = 0.0f;
+            treeArr[node].inner = treeArr[node].outer = NULL;
+            return;
+        }
+        end--;
+        treeArr[node].md = distArr[(start+end)/2];
+        treeArr[node].inner = (vptree *)1;
+        treeArr[node].outer = (end>start) ? (vptree *)1 : NULL;
+    }
 }
 
-vptree *buildvp(float *X, int n, int d, int offset)
+__global__
+void update_arrays(int *starts, int *ends, int *nodes, int n)
+{
+    int tid = blockIdx.x*BLK_SZ + threadIdx.x;
+
+    if(tid<n)
+    {
+        int start=starts[tid], end=ends[tid], node=nodes[tid];
+        end--;
+
+        if(tid<=(start+end)/2)
+        {
+        	starts[tid] = start;
+            ends  [tid] = (start+end)/2;
+            nodes [tid] = 2*node + 1;
+        }
+        else
+        {
+            starts[tid] = (start+end)/2 + 1;
+            ends  [tid] = end;
+            nodes [tid] = 2*node + 2;
+        }
+    }
+}
+
+__global__
+void print_arrays(float *dist, int *id, int *start, int *end, int *node, int n)
+{
+    printf("Dist: ");
+    for(int i=0; i<n; i++)
+        printf("%lf ", dist[i]);
+
+    printf("\nIDS: ");
+    for(int i=0; i<n; i++)
+        printf("%d ", id[i]);
+
+    printf("\nstarts: ");
+    for(int i=0; i<n; i++)
+        printf("%d ", start[i]);
+
+    printf("\nends: ");
+    for(int i=0; i<n; i++)
+        printf("%d ", end[i]);
+
+    printf("\nnodes: ");
+    for(int i=0; i<n; i++)
+        printf("%d ", node[i]);
+    printf("\n\n");
+
+}
+
+vptree *buildvp(float *X, int n, int d)
 {
     size_t treeSize = 1<<(32 - __builtin_clz(n-1)); // next greater power of 2 than n
     vptree *treeArr = (vptree *)malloc(treeSize*sizeof(vptree));
 
-    // Allocate Memory on Device
-    cudaErrChk( cudaMalloc(&dev_X, n*d*sizeof(float)) );
-    cudaErrChk( cudaMalloc(&dev_idArr, n*sizeof(int)) );
-    cudaErrChk( cudaMalloc(&dev_distArr, n*sizeof(float)) );
-    cudaErrChk( cudaMalloc(&dev_treeArr, treeSize*sizeof(vptree) ));
+    int *dev_idArr, *dev_starts, *dev_ends, *dev_nodes;
+    float *dev_distArr, *dev_X;
+    vptree *dev_treeArr;
 
-    // Initialise Device Variables
-    cudaErrChk(cudaMemcpy(dev_X, X, n*d*sizeof(int), cudaMemcpyHostToDevice)); //copy Data
-    dev_n = n; //Set n
-    dev_d = d; //Set d
-    idx_init<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(); //set idx [0...n-1]
-    cudaDeviceSynchronize();
+    // Allocate Memory on Device
+    cudaErrChk( cudaMalloc((void **)&dev_X, n*d*sizeof(float)) );
+    cudaErrChk( cudaMalloc((void **)&dev_idArr, 4*n*sizeof(int)) );
+    cudaErrChk( cudaMalloc((void **)&dev_starts, n*sizeof(int)) );
+    cudaErrChk( cudaMalloc((void **)&dev_ends, n*sizeof(int)) );
+    cudaErrChk( cudaMalloc((void **)&dev_nodes, n*sizeof(int)) );
+    cudaErrChk( cudaMalloc((void **)&dev_distArr, n*sizeof(float)) );
+    cudaErrChk( cudaMalloc((void **)&dev_treeArr, treeSize*sizeof(vptree) ));
+
+    // Initialize Device Variables
+    cudaErrChk(cudaMemcpy(dev_X, X, n*d*sizeof(float), cudaMemcpyHostToDevice)); //copy Data
+    thrust::sequence(thrust::device, dev_idArr, dev_idArr+n);
+    thrust::fill(thrust::device, dev_starts, dev_starts + n, 0);
+    thrust::fill(thrust::device, dev_ends, dev_ends + n, n-1);
+    thrust::fill(thrust::device, dev_nodes, dev_nodes + n, 0);
+
     
-    // Recursively build tree in GPU
-    recursiveBuildTree<<<1,1>>>(0, n-1, 0, X, treeArr); //This kernel only needs one thread
-    cudaDeviceSynchronize();
+    // Build tree in GPU (level by level in parallel)
+    for(int i=0; i<floor(log2(n))+1; i++)
+    {
+        // Parallel Distance Calculation
+        distCalc<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(dev_X, dev_idArr, dev_distArr, dev_ends, n, d);
+
+        // Parallel Sorting of intervals [start, end]
+        sort<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(dev_distArr, dev_idArr, dev_starts, dev_ends, n);
+
+        // Parallel level build
+        build_level<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(dev_treeArr, dev_distArr, dev_idArr, dev_starts, dev_ends, dev_nodes, n);
+        
+        // Update Arrays that show each thread what job to do
+        update_arrays<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(dev_starts, dev_ends, dev_nodes, n);
+    }
 
     // Copy the result back to host
     cudaErrChk(cudaMemcpy(treeArr, dev_treeArr, treeSize*sizeof(vptree), cudaMemcpyDeviceToHost));
@@ -131,6 +224,16 @@ vptree *buildvp(float *X, int n, int d, int offset)
     cudaErrChk(cudaFree(dev_idArr));
     cudaErrChk(cudaFree(dev_distArr));
     cudaErrChk(cudaFree(dev_treeArr));
+    cudaErrChk(cudaFree(dev_starts));
+    cudaErrChk(cudaFree(dev_ends));
+    
+    // Pointers fix
+    for(int i=0; i<treeSize; i++)
+    {
+        treeArr[i].vp = X + d*treeArr[i].idx;
+        if(treeArr[i].inner) treeArr[i].inner = treeArr + 2*i + 1;
+        if(treeArr[i].outer) treeArr[i].outer = treeArr + 2*i + 2;
+    }
 
     // Return
     return &treeArr[0];
