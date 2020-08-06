@@ -11,7 +11,8 @@
 #include <thrust/sort.h>
 #include <bits/stdc++.h>
 
-#define BLK_SZ 1024
+#define BLK_SZ 256
+#define WRK_THRD 4
 
 #define cudaErrChk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
@@ -26,22 +27,6 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 __device__ __forceinline__
 float sqr(float x) {return x*x;}
 
-__device__ __forceinline__
-void swapDouble(float* a, float* b)
-{
-    double temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
-__device__ __forceinline__
-void swapInt(int* a, int* b)
-{
-    int temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
 __device__
 void quickSelect(int kpos, float* distArr, int* idArr, int start, int end)
 {
@@ -50,8 +35,8 @@ void quickSelect(int kpos, float* distArr, int* idArr, int start, int end)
     for (int i=start; i<=end; i++)
         if (distArr[i] <= pivot)
         {
-            swapDouble(distArr+i, distArr+store);
-            swapInt   (idArr+i,   idArr+store);
+            thrust::swap(distArr[i], distArr[store]);
+            thrust::swap(idArr[i], idArr[store]);
             store++;
         }        
     store--;
@@ -64,13 +49,13 @@ void quickSelect(int kpos, float* distArr, int* idArr, int start, int end)
 __global__ 
 void distCalc(float *X, int *idArr, float *distArr, int *ends, int n, int d)
 {
+    float vp[300];
     int tid = blockIdx.x*BLK_SZ + threadIdx.x;  //calculate idx
-    if(tid<n)
+    for(int tid=blockIdx.x*BLK_SZ + threadIdx.x; tid<n; tid+=BLK_SZ*gridDim.x)
     {
-        float vp[100];
         int end=ends[tid], idx=idArr[end];
 
-        if(tid>=end) return;
+        if(tid>=end) continue;
 
         for(int i=0; i<d; i++)
             vp[i] = X[idx*d + i];
@@ -90,9 +75,7 @@ void sort(float *distArr, int *idArr, int *starts, int *ends, int n)
     int tid = blockIdx.x*BLK_SZ + threadIdx.x;
     if(tid<n)
     {
-        int start=starts[tid], end=ends[tid], idx=idArr[tid];
-        float val=distArr[tid];
-        
+        int start=starts[tid], end=ends[tid];
         // Shut down threads corresponding to vantage points
         if(tid!=(start+end)/2 || start>=end) return;
 
@@ -102,27 +85,14 @@ void sort(float *distArr, int *idArr, int *starts, int *ends, int n)
 }
 
 __global__
-void update_arrays(int *starts, int *ends, int *nodes, int n)
+void update_arrays(int *starts, int *ends, int n)
 {
-    int tid = blockIdx.x*BLK_SZ + threadIdx.x;
-
-    if(tid<n)
+    for(int tid=blockIdx.x*BLK_SZ + threadIdx.x; tid<n; tid+=BLK_SZ*gridDim.x)
     {
-        int start=starts[tid], end=ends[tid], node=nodes[tid];
-        end--;
+        int start=starts[tid], end=ends[tid]-1;
 
-        if(tid<=(start+end)/2)
-        {
-        	starts[tid] = start;
-            ends  [tid] = (start+end)/2;
-            nodes [tid] = 2*node + 1;
-        }
-        else
-        {
-            starts[tid] = (start+end)/2 + 1;
-            ends  [tid] = end;
-            nodes [tid] = 2*node + 2;
-        }
+        starts[tid] = (tid<=(start+end)/2) ? start : (start+end)/2 + 1;
+        ends  [tid] = (tid<=(start+end)/2) ? (start+end)/2 : end;
     }
 }
 
@@ -181,7 +151,7 @@ vptree *buildvp(float *X, int n, int d)
     int *idArr     = (int *)malloc(n*sizeof(int));
     float *distArr = (float *)malloc(n*sizeof(float));
 
-    int *dev_idArr, *dev_starts, *dev_ends, *dev_nodes;
+    int *dev_idArr, *dev_starts, *dev_ends;
     float *dev_distArr, *dev_X;
 
     // Allocate Memory on Device
@@ -189,7 +159,6 @@ vptree *buildvp(float *X, int n, int d)
     cudaErrChk( cudaMalloc((void **)&dev_idArr, 4*n*sizeof(int)) );
     cudaErrChk( cudaMalloc((void **)&dev_starts, n*sizeof(int)) );
     cudaErrChk( cudaMalloc((void **)&dev_ends, n*sizeof(int)) );
-    cudaErrChk( cudaMalloc((void **)&dev_nodes, n*sizeof(int)) );
     cudaErrChk( cudaMalloc((void **)&dev_distArr, n*sizeof(float)) );
 
 
@@ -198,20 +167,20 @@ vptree *buildvp(float *X, int n, int d)
     thrust::sequence(thrust::device, dev_idArr, dev_idArr+n);
     thrust::fill(thrust::device, dev_starts, dev_starts + n, 0);
     thrust::fill(thrust::device, dev_ends, dev_ends + n, n-1);
-    thrust::fill(thrust::device, dev_nodes, dev_nodes + n, 0);
-
     
     // Build tree in GPU (level by level in parallel)
+    int numSMs;
+    cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
     for(int i=0; i<floor(log2(n))+1; i++)
     {
         // Parallel Distance Calculation
-        distCalc<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(dev_X, dev_idArr, dev_distArr, dev_ends, n, d);
+        distCalc<<<32*numSMs, BLK_SZ>>>(dev_X, dev_idArr, dev_distArr, dev_ends, n, d);
 
         // Parallel Sorting of intervals [start, end]
         sort<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(dev_distArr, dev_idArr, dev_starts, dev_ends, n);
         
         // Update Arrays that show each thread what job to do
-        update_arrays<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(dev_starts, dev_ends, dev_nodes, n);
+        update_arrays<<<32*numSMs, BLK_SZ>>>(dev_starts, dev_ends, n);
     }
 
     // Copy the result back to host
