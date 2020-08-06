@@ -102,28 +102,6 @@ void sort(float *distArr, int *idArr, int *starts, int *ends, int n)
 }
 
 __global__
-void build_level(vptree *treeArr, float *distArr, int *idArr, int *starts, int *ends, int *nodes, int n)
-{
-    int tid = blockIdx.x*BLK_SZ + threadIdx.x;
-    if(tid<n)
-    {
-        int start=starts[tid], end=ends[tid], node=nodes[tid];
-
-        treeArr[node].idx = idArr[end];
-        if(start==end)
-        {
-            treeArr[node].md = 0.0f;
-            treeArr[node].inner = treeArr[node].outer = NULL;
-            return;
-        }
-        end--;
-        treeArr[node].md = distArr[(start+end)/2];
-        treeArr[node].inner = (vptree *)1;
-        treeArr[node].outer = (end>start) ? (vptree *)1 : NULL;
-    }
-}
-
-__global__
 void update_arrays(int *starts, int *ends, int *nodes, int n)
 {
     int tid = blockIdx.x*BLK_SZ + threadIdx.x;
@@ -174,14 +152,37 @@ void print_arrays(float *dist, int *id, int *start, int *end, int *node, int n)
 
 }
 
+void recursiveBuildTree(vptree *node, float *X, int d, float *distArr, int *idArr, int start, int end)
+{
+    node->idx = idArr[end];
+    node->vp  = &X[d*node->idx];
+
+    if (start==end)
+    {
+        node->inner = node->outer = NULL;
+        node->md = 0.0;
+        return;
+    }
+    end--;
+
+    node->md    = distArr[ (start+end)/2 ];
+    node->inner = (vptree *)malloc(sizeof(vptree));
+    recursiveBuildTree(node->inner, X, d, distArr, idArr, start, (start+end)/2);
+    if(end>start)
+    {
+        node->outer = (vptree *)malloc(sizeof(vptree));
+        recursiveBuildTree(node->outer, X, d, distArr, idArr, (start+end)/2 + 1, end);
+    }
+    else node->outer = NULL;
+}
+
 vptree *buildvp(float *X, int n, int d)
 {
-    size_t treeSize = 1<<(32 - __builtin_clz(n-1)); // next greater power of 2 than n
-    vptree *treeArr = (vptree *)malloc(treeSize*sizeof(vptree));
+    int *idArr     = (int *)malloc(n*sizeof(int));
+    float *distArr = (float *)malloc(n*sizeof(float));
 
     int *dev_idArr, *dev_starts, *dev_ends, *dev_nodes;
     float *dev_distArr, *dev_X;
-    vptree *dev_treeArr;
 
     // Allocate Memory on Device
     cudaErrChk( cudaMalloc((void **)&dev_X, n*d*sizeof(float)) );
@@ -190,7 +191,7 @@ vptree *buildvp(float *X, int n, int d)
     cudaErrChk( cudaMalloc((void **)&dev_ends, n*sizeof(int)) );
     cudaErrChk( cudaMalloc((void **)&dev_nodes, n*sizeof(int)) );
     cudaErrChk( cudaMalloc((void **)&dev_distArr, n*sizeof(float)) );
-    cudaErrChk( cudaMalloc((void **)&dev_treeArr, treeSize*sizeof(vptree) ));
+
 
     // Initialize Device Variables
     cudaErrChk(cudaMemcpy(dev_X, X, n*d*sizeof(float), cudaMemcpyHostToDevice)); //copy Data
@@ -208,35 +209,28 @@ vptree *buildvp(float *X, int n, int d)
 
         // Parallel Sorting of intervals [start, end]
         sort<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(dev_distArr, dev_idArr, dev_starts, dev_ends, n);
-
-        // Parallel level build
-        build_level<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(dev_treeArr, dev_distArr, dev_idArr, dev_starts, dev_ends, dev_nodes, n);
         
         // Update Arrays that show each thread what job to do
         update_arrays<<<(n+BLK_SZ-1)/BLK_SZ, BLK_SZ>>>(dev_starts, dev_ends, dev_nodes, n);
     }
 
     // Copy the result back to host
-    cudaErrChk(cudaMemcpy(treeArr, dev_treeArr, treeSize*sizeof(vptree), cudaMemcpyDeviceToHost));
+    cudaErrChk(cudaMemcpy(idArr, dev_idArr, n*sizeof(int), cudaMemcpyDeviceToHost));
+    cudaErrChk(cudaMemcpy(distArr, dev_distArr, n*sizeof(float), cudaMemcpyDeviceToHost));
 
     // Clean-up
     cudaErrChk(cudaFree(dev_X));
     cudaErrChk(cudaFree(dev_idArr));
     cudaErrChk(cudaFree(dev_distArr));
-    cudaErrChk(cudaFree(dev_treeArr));
     cudaErrChk(cudaFree(dev_starts));
     cudaErrChk(cudaFree(dev_ends));
     
-    // Pointers fix
-    for(int i=0; i<treeSize; i++)
-    {
-        treeArr[i].vp = X + d*treeArr[i].idx;
-        if(treeArr[i].inner) treeArr[i].inner = treeArr + 2*i + 1;
-        if(treeArr[i].outer) treeArr[i].outer = treeArr + 2*i + 2;
-    }
+    // Tree build
+    vptree *root = (vptree *)malloc(sizeof(vptree));
+    recursiveBuildTree(root, X, d, distArr, idArr, 0, n-1);
 
     // Return
-    return &treeArr[0];
+    return root;
 }
 
 /////////////////////////////////////////////////////////////////////////////
