@@ -23,7 +23,7 @@ struct vptree
     \param d number of dimensions (columns of X)
     \return The vantage-point tree
 */
-vptree *buildvp(float *X, int n, int d, int offset=0);
+vptree *buildvp(float *X, int n, int d);
 
 /////////////////////////////////////////////////////////////////////////////
 
