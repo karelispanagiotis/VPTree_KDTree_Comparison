@@ -8,8 +8,8 @@ CC = nvcc
 INCLUDES = -I../inc
 
 # define flags
-CFLAGS = -w -g
-CUDAFLAGS = -arch=sm_35 --fmad=false --ftz=false
+CFLAGS = -w 
+CUDAFLAGS = --fmad=false --ftz=false
 
 # define kNN search dependencies
 kNN_DEPENDS = ../src/vptree_sequential.cpp ../src/kNN.cpp ../src/kdtree_sequential.cpp

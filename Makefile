@@ -20,7 +20,7 @@ CC = nvcc
 
 #define compile-time flags
 CFLAGS = -w -O3 
-CUDAFLAGS = -x cu -dc -arch=sm_35 --fmad=false --ftz=false
+CUDAFLAGS = -x cu -dc --fmad=false --ftz=false
 
 #define directories containing header files
 INCLUDES = -I./inc
