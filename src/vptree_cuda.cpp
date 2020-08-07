@@ -49,21 +49,15 @@ void quickSelect(int kpos, float* distArr, int* idArr, int start, int end)
 __global__ 
 void distCalc(float *X, int *idArr, float *distArr, int *ends, int n, int d)
 {
-    float vp[300];
-    int tid = blockIdx.x*BLK_SZ + threadIdx.x;  //calculate idx
     for(int tid=blockIdx.x*BLK_SZ + threadIdx.x; tid<n; tid+=BLK_SZ*gridDim.x)
     {
-        int end=ends[tid], idx=idArr[end];
+        int end=ends[tid], vpidx=idArr[end], idx=idArr[tid];
 
         if(tid>=end) continue;
 
-        for(int i=0; i<d; i++)
-            vp[i] = X[idx*d + i];
-
         float distance = 0;
-        idx = idArr[tid];
         for(int i=0; i<d; i++)
-            distance += sqr(vp[i] - X[idx*d + i]); 
+            distance += sqr(X[vpidx*d + i] - X[idx*d + i]); 
         
         distArr[tid] = sqrt(distance);
     }
