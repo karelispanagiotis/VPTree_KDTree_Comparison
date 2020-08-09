@@ -1,86 +1,54 @@
 #include "kdtree.h"
-#include <cstdlib>
+#include "utilities.h"
 #include <bits/stdc++.h>
 
-static int *idArr;
-static kdtree *treeArr;
-static float *Y, *aux_array;
-static int N, D;
-
-void quickSelect_kdt(int kpos, int start, int end)
+void buildNode_kdt(kdtree *node, float *X, int n, int d, float *auxArray, int *idArr, int start, int end, int depth)
 {
-    int store;
-    float pivot;
-    while(start<=end)
-    {
-        store = start;
-        pivot = aux_array[end];
+    float(*dataArr)[d] = (float(*)[d])X;
 
-        for (int i=start; i<=end; i++)
-        if (aux_array[i] <= pivot)
-        {
-            std::swap(aux_array[i], aux_array[store]);
-            std::swap(idArr    [i], idArr    [store]);
-            store++;
-        }        
-        store--;
-
-        if(store ==kpos) return;
-        else if(store < kpos) start = store + 1;
-        else end = store - 1; 
-    }
-}
-
-
-void buildNode_kdt(int start, int end, int ndNum)
-{
-    float(*dataArr)[D] = (float(*)[D])Y;
-
-    int depth = (32 - __builtin_clz(ndNum+1)) - 1;
-    treeArr[ndNum].axis = depth%D;
+    node->axis = depth%d;
 
     if(start==end)
     {
-        treeArr[ndNum].idx = idArr[start];
-        treeArr[ndNum].p   = dataArr[ idArr[start] ];
-        treeArr[ndNum].mc  = 0.0;
-        treeArr[ndNum].left = treeArr[ndNum].right = NULL;
+        node->idx = idArr[start];
+        node->p   = dataArr[ idArr[start] ];
+        node->mc  = 0.0;
+        node->left = node->right = NULL;
         return;
     }
 
     for(int i=start; i<=end; i++)
-        aux_array[i] = dataArr[idArr[i]][treeArr[ndNum].axis];
+        auxArray[i] = dataArr[idArr[i]][node->axis];
 
-    int middle = (start+end)/2;
-    quickSelect_kdt(middle, start, end);
+    quickSelect((start+end)/2, auxArray, idArr, start, end);
 
-    treeArr[ndNum].idx = idArr[middle];
-    treeArr[ndNum].p   = dataArr[ idArr[middle] ];
-    treeArr[ndNum].mc  = aux_array[middle];
-    treeArr[ndNum].left  = &treeArr[2*ndNum + 1];
-    treeArr[ndNum].right = &treeArr[2*ndNum + 2];
+    node->idx = idArr[(start+end)/2];
+    node->p   = dataArr[ idArr[(start+end)/2] ];
+    node->mc  = auxArray[(start+end)/2];
+    node->right = (kdtree *)malloc(sizeof(kdtree));
 
     // Recursion
-    buildNode_kdt(middle+1, end, 2*ndNum+2);
-    if(start<middle) buildNode_kdt(start, middle-1, 2*ndNum+1);
-    else treeArr[ndNum].left = NULL;
+    buildNode_kdt(node->right, X, n, d, auxArray, idArr, (start+end)/2+1, end, depth+1);
+    if(start<(start+end)/2)
+    {
+        node->left  = (kdtree *)malloc(sizeof(kdtree));
+        buildNode_kdt(node->left, X, n, d, auxArray, idArr, start, (start+end)/2 - 1, depth+1);
+    }
+    else node->left = NULL;
 }
 
 kdtree *buildkd(float *X, int n, int d)
 {
-    size_t arraySize = 1<<(32 - __builtin_clz(n-1));
-    treeArr = (kdtree *)malloc(arraySize*sizeof(kdtree));
-    aux_array = (float *)malloc(n*sizeof(float));
-    idArr = (int *)malloc(n*sizeof(int));
-
-    Y=X; N=n; D=d;
+    kdtree *root = (kdtree *)malloc(sizeof(kdtree));
+    float *aux_array = (float *)malloc(n*sizeof(float));
+    int *idArr = (int *)malloc(n*sizeof(int));
     for(int i=0; i<n; i++) idArr[i] = i;
 
-    buildNode_kdt(0, n-1, 0);
+    buildNode_kdt(root, X, n, d, aux_array, idArr, 0, n-1, 0);
 
     free(idArr);
     free(aux_array);
-    return &treeArr[0];
+    return root;
 }
 
 float* getPoint(kdtree *node)   {return node->p;}
