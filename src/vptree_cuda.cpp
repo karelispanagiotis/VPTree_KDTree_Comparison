@@ -1,11 +1,10 @@
 #include "vptree.h"
 #include <stdlib.h>
-#include <cstdio>
 #include <cuda.h>
+#include <math.h>
 #include <cuda_runtime_api.h>
 #include <device_launch_parameters.h>
 #include <thrust/device_vector.h>
-#include <math.h>
 #include <thrust/sequence.h>
 #include <thrust/fill.h>
 #include <thrust/sort.h>
@@ -14,11 +13,9 @@
 
 using namespace thrust;
 
-__device__ __forceinline__
-float sqr(float x) {return x*x;}
+__device__ __forceinline__ float sqr(float x) {return x*x;}
 
-__global__ 
-void distCalc(float *X, int *idArr, float *distArr, int *ends, int n, int d)
+__global__ void distCalc(float *X, int *idArr, float *distArr, int *ends, int n, int d)
 {
     for(int tid=blockIdx.x*BLK_SZ + threadIdx.x; tid<n; tid+=BLK_SZ*gridDim.x)
     {
@@ -34,9 +31,7 @@ void distCalc(float *X, int *idArr, float *distArr, int *ends, int n, int d)
     }
 }
 
-
-__global__
-void update_arrays(int *starts, int *ends, int n)
+__global__ void update_arrays(int *starts, int *ends, int n)
 {
     for(int tid=blockIdx.x*BLK_SZ + threadIdx.x; tid<n; tid+=BLK_SZ*gridDim.x)
     {
@@ -47,41 +42,13 @@ void update_arrays(int *starts, int *ends, int n)
     }
 }
 
-__global__
-void make_segments(int *segments, int *starts, int *ends, int n)
+__global__ void make_segments(int *segments, int *starts, int *ends, int n)
 {
     for(int tid=blockIdx.x*BLK_SZ + threadIdx.x; tid<n; tid+=BLK_SZ*gridDim.x)
     {
         int start=starts[tid], end=ends[tid];
-
         segments[tid] = (tid==start || tid>=end) ? 1 : 0;
     }
-}
-
-__global__
-void print_arrays(float *dist, int *id, int *segment, int n)
-{
-    printf("Dist: ");
-    for(int i=0; i<n; i++)
-        printf("%lf ", dist[i]);
-
-    printf("\nIDS: ");
-    for(int i=0; i<n; i++)
-        printf("%d ", id[i]);
-
-    // printf("\nstarts: ");
-    // for(int i=0; i<n; i++)
-    //     printf("%d ", start[i]);
-
-    // printf("\nends: ");
-    // for(int i=0; i<n; i++)
-    //     printf("%d ", end[i]);
-
-    printf("\nSegments: ");
-    for(int i=0; i<n; i++)
-        printf("%d ", segment[i]);
-    printf("\n\n");
-
 }
 
 void recursiveBuildTree(vptree *node, float *X, int d, float *distArr, int *idArr, int start, int end)
@@ -126,18 +93,18 @@ vptree *buildvp(float *X, int n, int d)
     // Build tree in GPU (level by level in parallel)
     int numSMs;
     cudaDeviceGetAttribute(&numSMs, cudaDevAttrMultiProcessorCount, 0);
-    for(int i=0; i<floor(log2(n))+1; i++)
+    for(int i=0; i<floor(log2(n)); i++)
     {
         // Parallel Distance Calculation
         distCalc<<<32*numSMs, BLK_SZ>>>(raw_pointer_cast(&dev_X[0]), raw_pointer_cast(&dev_idArr[0]), raw_pointer_cast(&dev_distArr[0]), raw_pointer_cast(&dev_ends[0]), n, d);
         make_segments<<<32*numSMs, BLK_SZ>>>(raw_pointer_cast(&dev_segments[0]), raw_pointer_cast(&dev_starts[0]), raw_pointer_cast(&dev_ends[0]), n);
 
-        // Parallel Sorting of intervals [start, end]
+        // Parallel Sorting of segments [start, end]
         inclusive_scan(dev_segments.begin(), dev_segments.end(), dev_segments.begin());
         stable_sort_by_key(dev_distArr.begin(), dev_distArr.end(), make_zip_iterator(make_tuple(dev_idArr.begin(), dev_segments.begin())));
         stable_sort_by_key(dev_segments.begin(), dev_segments.end(), make_zip_iterator(make_tuple(dev_distArr.begin(), dev_idArr.begin())));
 
-        // Update Arrays that show each thread what job to do
+        // Update Arrays that show for each array position in which segment [start, end] it belongs to
         update_arrays<<<32*numSMs, BLK_SZ>>>(raw_pointer_cast(&dev_starts[0]), raw_pointer_cast(&dev_ends[0]), n);
     }
 
@@ -151,7 +118,6 @@ vptree *buildvp(float *X, int n, int d)
 
     // Clean-up
     free(idArr); free(distArr);
-
     return root;
 }
 
