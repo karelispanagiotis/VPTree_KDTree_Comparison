@@ -12,7 +12,7 @@ CFLAGS = -w -O3
 CUDAFLAGS = --fmad=false --ftz=false
 
 # define kNN search dependencies
-kNN_DEPENDS = ../src/kNN.cpp ../src/vptree_sequential.cpp ../src/kdtree_sequential.cpp
+kNN_DEPENDS = ../src/kNN.cpp ../src/vptree_cuda.cpp ../src/kdtree_cuda.cpp
 
 test_sequential: tester.cpp ../src/vptree_sequential.cpp ../src/utilities.cpp
 	$(CC) $(INCLUDES) $(CFLAGS) $^ -o $@ -lm

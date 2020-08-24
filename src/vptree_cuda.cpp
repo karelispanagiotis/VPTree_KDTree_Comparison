@@ -31,7 +31,7 @@ __global__ void distCalc(float *X, int *idArr, float *distArr, int *ends, int n,
     }
 }
 
-__global__ void update_arrays(int *starts, int *ends, int n)
+__global__ void static update_arrays(int *starts, int *ends, int n)
 {
     for(int tid=blockIdx.x*BLK_SZ + threadIdx.x; tid<n; tid+=BLK_SZ*gridDim.x)
     {
@@ -42,7 +42,7 @@ __global__ void update_arrays(int *starts, int *ends, int n)
     }
 }
 
-__global__ void make_segments(int *segments, int *starts, int *ends, int n)
+__global__ void static make_segments(int *segments, int *starts, int *ends, int n)
 {
     for(int tid=blockIdx.x*BLK_SZ + threadIdx.x; tid<n; tid+=BLK_SZ*gridDim.x)
     {

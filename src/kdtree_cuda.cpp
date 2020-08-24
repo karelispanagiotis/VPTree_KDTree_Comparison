@@ -21,7 +21,7 @@ __global__ void copy_dim(float *X, int *idArr, float *auxArr, int *starts, int n
     }
 }
 
-__global__ void make_segments(int *segments, int *starts, int *ends, int n)
+__global__ static void make_segments(int *segments, int *starts, int *ends, int n)
 {
     for(int tid=blockIdx.x*BLK_SZ + threadIdx.x; tid<n; tid+=BLK_SZ*gridDim.x)
     {
@@ -30,7 +30,7 @@ __global__ void make_segments(int *segments, int *starts, int *ends, int n)
     }
 }
 
-__global__ void update_arrays(int *starts, int *ends, int n)
+__global__ static void update_arrays(int *starts, int *ends, int n)
 {
     for(int tid=blockIdx.x*BLK_SZ + threadIdx.x; tid<n; tid+=BLK_SZ*gridDim.x)
     {
