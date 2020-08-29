@@ -17,12 +17,12 @@ void distCalc(float *vp, float *X, int d, int *idArr, float *distArr, int start,
 
 ////////////////////////////////////////////////////////////////////////
 
-void recursiveBuildTree(vptree* node, float *X, int n, int  d, float *distArr, int *idArr, int start, int end)
+void recursiveBuildTree(vptree* node, float *X, int n, int  d, float *distArr, int *idArr, int start, int end, int idOffset)
 {
     float(*dataArr)[d] = (float(*)[d])X;
     //consider X[ idArr[end] ] as vantage point
-    node->idx = idArr[end];
-    node->vp  = dataArr[ node->idx ]; 
+    node->idx = idArr[end] + idOffset;
+    node->vp  = dataArr[ idArr[end] ]; 
     
     if (start==end)
     {
@@ -39,25 +39,25 @@ void recursiveBuildTree(vptree* node, float *X, int n, int  d, float *distArr, i
 
     node->md  = sqrt(distArr[ (start+end)/2 ]);
     node->inner = (vptree *)malloc( sizeof(vptree) );
-    recursiveBuildTree(node->inner, X, n, d, distArr, idArr, start, (start+end)/2);
+    recursiveBuildTree(node->inner, X, n, d, distArr, idArr, start, (start+end)/2, idOffset);
     if (end>start)
     {
         node->outer = (vptree *)malloc( sizeof(vptree) );
-        recursiveBuildTree(node->outer, X, n, d, distArr, idArr, (start+end)/2 +1, end);
+        recursiveBuildTree(node->outer, X, n, d, distArr, idArr, (start+end)/2 +1, end, idOffset);
     }
     else node->outer = NULL;
 };
 
 /////////////////////////////////////////////////////////////////////////////
 
-vptree *buildvp(float *X, int n, int d)
+vptree *buildvp(float *X, int n, int d, int idOffset)
 {
-    vptree *root = (vptree *)malloc( sizeof(vptree) );
-    int *idArr        = (int *)malloc( n*sizeof(int) );
-    float *distArr      = (float *)malloc( n*sizeof(float) );
+    vptree *root   = (vptree *)malloc( sizeof(vptree) );
+    int *idArr     = (int *)malloc( n*sizeof(int) );
+    float *distArr = (float *)malloc( n*sizeof(float) );
     for (int i=0; i<n; i++) idArr[i] = i;
 
-    recursiveBuildTree(root, X, n, d, distArr, idArr, 0, n-1);
+    recursiveBuildTree(root, X, n, d, distArr, idArr, 0, n-1, idOffset);
     
     free(idArr);
     free(distArr);

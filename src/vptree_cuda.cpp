@@ -51,10 +51,10 @@ __global__ void static make_segments(int *segments, int *starts, int *ends, int 
     }
 }
 
-void recursiveBuildTree(vptree *node, float *X, int d, float *distArr, int *idArr, int start, int end)
+void recursiveBuildTree(vptree *node, float *X, int d, float *distArr, int *idArr, int start, int end, int idOffset)
 {
-    node->idx = idArr[end];
-    node->vp  = &X[d*node->idx];
+    node->idx = idArr[end] + idOffset;
+    node->vp  = &X[ d*idArr[end] ];
 
     if (start==end)
     {
@@ -66,16 +66,16 @@ void recursiveBuildTree(vptree *node, float *X, int d, float *distArr, int *idAr
 
     node->md    = distArr[ (start+end)/2 ];
     node->inner = (vptree *)malloc(sizeof(vptree));
-    recursiveBuildTree(node->inner, X, d, distArr, idArr, start, (start+end)/2);
+    recursiveBuildTree(node->inner, X, d, distArr, idArr, start, (start+end)/2, idOffset);
     if(end>start)
     {
         node->outer = (vptree *)malloc(sizeof(vptree));
-        recursiveBuildTree(node->outer, X, d, distArr, idArr, (start+end)/2 + 1, end);
+        recursiveBuildTree(node->outer, X, d, distArr, idArr, (start+end)/2 + 1, end, idOffset);
     }
     else node->outer = NULL;
 }
 
-vptree *buildvp(float *X, int n, int d)
+vptree *buildvp(float *X, int n, int d, int idOffset)
 {
     int *idArr     = (int *)malloc(n*sizeof(int));
     float *distArr = (float *)malloc(n*sizeof(float));
@@ -114,7 +114,7 @@ vptree *buildvp(float *X, int n, int d)
 
     // Tree build
     vptree *root = (vptree *)malloc(sizeof(vptree));
-    recursiveBuildTree(root, X, d, distArr, idArr, 0, n-1);
+    recursiveBuildTree(root, X, d, distArr, idArr, 0, n-1, idOffset);
 
     // Clean-up
     free(idArr); free(distArr);
