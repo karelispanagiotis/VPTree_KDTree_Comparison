@@ -49,6 +49,13 @@ void updateResult(knnresult* store, knnresult* newRes)
     }
 }
 
+void free_vpt(vptree *root)
+{
+    if (root == NULL) return;
+    free_vpt(root->inner); free_vpt(root->outer);
+    free(root);
+}
+
 int mod(int x, int n) { return (n+x%n)%n; }
 
 knnresult vptree_distrAllkNN(float *X, int n, int d, int k)
@@ -80,7 +87,7 @@ knnresult vptree_distrAllkNN(float *X, int n, int d, int k)
     vptree *root = buildvp(X, n, d, idOffset);
     result = vptree_kNN(root, X, n, d, k);
 
-    free(root); //tree is stored in an array, freeing root deallocates all nodes of the tree
+    free_vpt(root); 
 
     MPI_Waitall(2, requests, statuses);
 
