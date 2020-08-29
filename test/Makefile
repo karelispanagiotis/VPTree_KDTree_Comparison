@@ -25,7 +25,7 @@ test_cuda: tester.cpp
 test_knn: tester_knn.c $(kNN_DEPENDS) ../src/utilities.cpp
 	$(CC) -x cu $(INCLUDES) $(CFLAGS) $^  -o $@ -lm
 
-test_mpi: tester_mpi.c ../src/knnring.cpp $(kNN_DEPENDS)
+test_mpi: tester_mpi.c ../src/knnring.cpp ../src/kNN.cpp ../src/vptree_sequential.cpp ../src/kdtree_sequential.cpp ../src/utilities.cpp
 	mpic++ $(INCLUDES) $(CFLAGS) $^ -o $@
 
 clean: 
