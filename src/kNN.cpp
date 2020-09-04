@@ -2,6 +2,10 @@
 #include <queue>
 #include <math.h>
 #include <cstdio>
+#include <cstdlib>
+
+#include <cilk/cilk.h>
+#include <cilk/cilk_api_linux.h>
 
 using namespace std;
 
@@ -52,11 +56,15 @@ knnresult vptree_kNN(vptree *root, float *query, int n, int d, int k)
     result.ndist = (float *)malloc(n*k*sizeof(float));
     result.nidx  = (int *)  malloc(n*k*sizeof(int));
 
-    int nodesVisited = 0;    
-    for(int i=0; i<n; i++)
+    int *visits = (int *)malloc(n*sizeof(int));
+    cilk_for(int i=0; i<n; i++)
     {
+        int nodesVisited = 0;  
         priority_queue<neighbour> q;
+
         vpt_search(q, root, query + i*d, d, k, nodesVisited);
+        visits[i] = nodesVisited;
+
         for(int j=k-1; j>=0; j--)
         {
             neighbour x = q.top(); q.pop();
@@ -64,8 +72,12 @@ knnresult vptree_kNN(vptree *root, float *query, int n, int d, int k)
             result.ndist[i*k + j] = x.dist;
         }
     }
-    printf("Average nodes: %lf\n", (double)nodesVisited/n);
 
+    int totalNodesVisited = 0;
+    for(int i=0; i<n; i++) totalNodesVisited += visits[i]; 
+    printf("Average nodes: %lf\n", (double)totalNodesVisited/n);
+
+    free(visits);
     return result;
 }
 
@@ -100,11 +112,15 @@ knnresult kdtree_kNN(kdtree *root, float *query, int n, int d, int k)
     result.ndist = (float *)malloc(n*k*sizeof(float));
     result.nidx  = (int *)  malloc(n*k*sizeof(int));
 
-    int nodesVisited = 0;
-    for(int i=0; i<n; i++)
+    int *visits = (int *)malloc(n*sizeof(int));
+    cilk_for(int i=0; i<n; i++)
     {
+        int nodesVisited = 0;
         priority_queue<neighbour> q;
+
         kdt_search(q, root, query + i*d, d, k, nodesVisited);
+        visits[i] = nodesVisited;
+
         for(int j=k-1; j>=0; j--)
         {
             neighbour x = q.top(); q.pop();
@@ -112,7 +128,11 @@ knnresult kdtree_kNN(kdtree *root, float *query, int n, int d, int k)
             result.ndist[i*k + j] = x.dist;
         }
     }
-    printf("Average nodes: %lf\n", (double)nodesVisited/n);
+    
+    int totalNodesVisited = 0;
+    for(int i=0; i<n; i++) totalNodesVisited += visits[i]; 
+    printf("Average nodes: %lf\n", (double)totalNodesVisited/n);
 
+    free(visits);
     return result;
 }

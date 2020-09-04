@@ -19,14 +19,14 @@ SHELL := /bin/bash
 CC = nvcc
 
 #define compile-time flags
-CFLAGS = -w -O3 
-CUDAFLAGS = -x cu -dc --fmad=false --ftz=false
+CFLAGS = -w -O3 -Xcompiler -fcilkplus
+CUDAFLAGS = -dc --fmad=false --ftz=false
 
 #define directories containing header files
 INCLUDES = -I./inc
 
 #define Objects
-OBJECTS = vptree_sequential.o vptree_cuda.o kNN.o
+OBJECTS = vptree_sequential.o kdtree_sequential.o kNN.o vptree_cuda.o kdtree_cuda.o
 
 ########################################################################
 
@@ -35,8 +35,8 @@ lib: $(OBJECTS)
 %.o : src/%.cpp
 	$(CC) $(CFLAGS) $(CUDAFLAGS) $(INCLUDES) $< -o lib/$@
 
-%.o : src/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o lib/$@
+%.o : src/%.cu
+	$(CC) $(CFLAGS) $(CUDAFLAGS) $(INCLUDES) $< -o lib/$@
 
 clean: 
 	rm lib/*.o
