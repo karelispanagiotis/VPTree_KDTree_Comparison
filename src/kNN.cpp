@@ -41,12 +41,26 @@ void vpt_search(priority_queue<neighbour> &q, vptree *node, float *query, int d,
         q.pop();
         q.push(x);
     }
-
-    if(x.dist <= q.top().dist + node->md)
-        vpt_search(q, node->inner, query, d, k, nodesVisited);
     
-    if(x.dist >= node->md - q.top().dist)
-        vpt_search(q, node->outer, query, d, k, nodesVisited);
+    // The order of branching in the case of intersecting "mu" and "tau" is crucial for performance
+    if(x.dist < node->md)
+    {
+        // Inner first 
+        vpt_search(q, node->inner, query, d, k, nodesVisited);
+        
+        // Outer second (if there is an intersection)
+        if(x.dist >= node->md - q.top().dist) 
+            vpt_search(q, node->outer, query, d, k, nodesVisited);
+    }
+    else
+    {
+        // Outer first
+        vpt_search(q, node->outer, query, d, k, nodesVisited); 
+
+        // Inner second (if there is an intersection)
+        if(x.dist <= q.top().dist + node->md)
+            vpt_search(q, node->inner, query, d, k, nodesVisited);
+    }
 }
 
 knnresult vptree_kNN(vptree *root, float *query, int n, int d, int k)
@@ -99,10 +113,18 @@ void kdt_search(priority_queue<neighbour> &q, kdtree *node, float *query, int d,
     }
 
     int axis = getAxis(node);
-    if(node->mc <= q.top().dist + query[axis])
-        kdt_search(q, node->right, query, d, k, nodesVisited);
-    if(node->mc >= query[axis] - q.top().dist)
+    if(query[axis] < node->mc)
+    {
         kdt_search(q, node->left, query, d, k, nodesVisited);
+        if(node->mc <= q.top().dist + query[axis])
+            kdt_search(q, node->right, query, d, k, nodesVisited);
+    }
+    else
+    {
+        kdt_search(q, node->right, query, d, k, nodesVisited);
+        if(node->mc >= query[axis] - q.top().dist)
+            kdt_search(q, node->left, query, d, k, nodesVisited);
+    }
 }
 
 knnresult kdtree_kNN(kdtree *root, float *query, int n, int d, int k)
