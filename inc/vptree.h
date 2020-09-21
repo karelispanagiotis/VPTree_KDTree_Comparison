@@ -21,6 +21,7 @@ struct vptree
     \param X Input data points, stored as [n-by-d] array
     \param n Number of data points (rows of X)
     \param d number of dimensions (columns of X)
+    \param idOffset offset to be used in distributed kNN ring
     \return The vantage-point tree
 */
 vptree *buildvp(float *X, int n, int d, int idOffset = 0);

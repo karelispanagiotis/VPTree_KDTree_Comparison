@@ -40,13 +40,13 @@ int main(int argc, char *argv[])
   gettimeofday(&start, NULL);
   vptree *rootvp = buildvp(corpus, n, d);
   gettimeofday(&end, NULL);
+  long time_usec = (end.tv_sec - start.tv_sec)*1000000 + end.tv_usec - start.tv_usec;
+  printf("Construction of tree took %lf\n", (double)time_usec/1000000);
 
   knnresult knnres = vptree_kNN(rootvp, query, m, d, k);
   int isValidR = validateResult( knnres, corpus, query, n, m, d, k, ROWMAJOR );
 
-  long time_usec = (end.tv_sec - start.tv_sec)*1000000 + end.tv_usec - start.tv_usec;
-  printf("Construction of tree took %lf\n", (double)time_usec/1000000);
-  printf("Tester validation: %s NEIGHBORS\n", STR_CORRECT_WRONG[isValidR]);
+  printf("Tester validation: %s NEIGHBORS\n\n", STR_CORRECT_WRONG[isValidR]);
 
   /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -54,12 +54,12 @@ int main(int argc, char *argv[])
   gettimeofday(&start, NULL);
   kdtree *rootkd = buildkd(corpus, n, d);
   gettimeofday(&end, NULL);
+  time_usec = (end.tv_sec - start.tv_sec)*1000000 + end.tv_usec - start.tv_usec;
+  printf("Construction of tree took %lf\n", (double)time_usec/1000000);
 
   knnres = kdtree_kNN(rootkd, query, m, d, k);
   isValidR = validateResult( knnres, corpus, query, n, m, d, k, ROWMAJOR );
 
-  time_usec = (end.tv_sec - start.tv_sec)*1000000 + end.tv_usec - start.tv_usec;
-  printf("Construction of tree took %lf\n", (double)time_usec/1000000);
   printf("Tester validation: %s NEIGHBORS\n", STR_CORRECT_WRONG[isValidR]);
 
   free( corpus );
